@@ -1,6 +1,9 @@
 # Web_Nhom_8
-Thành viên nhóm:
-Võ Hoàng Tuấn Hải,
-Hồ Trọng Phúc,
-Nguyễn Thành Đạt,
-Lê Quân.
+## Nhóm Phát Triển
+
+| Thành viên          | Vai trò     |
+| ------------------- | ----------- |
+| Võ Hoàng Tuấn Hải   | Team Leader |
+| Hồ Trong Phúc       | Member      |
+| Nguyễn Thành Đạt    | Member      |
+| Lê Quân             | Member      |
