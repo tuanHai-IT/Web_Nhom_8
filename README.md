@@ -1,6 +1,6 @@
-# 🎮 ĐỒ ÁN KẾT THÚC MÔN: WEB TIN TỨC GAME
+#  ĐỒ ÁN KẾT THÚC MÔN: WEB TIN TỨC GAME
 
-## 📚 THÔNG TIN MÔN HỌC
+##  THÔNG TIN MÔN HỌC
 - **Môn học:** Phát triển Ứng dụng Web
 - **Trường:** Đại học Kinh tế TP.HCM (UEH)
 - **Chủ đề:** Website Tin tức Game
@@ -12,26 +12,26 @@
 
 ### Frontend
 - **HTML5, CSS3, JavaScript**
-- **Bootstrap 5** ✅ (Yêu cầu bắt buộc)
+- **Bootstrap 5** 
 - **jQuery** - AJAX calls
 - **Font Awesome** - Icons
 - **TinyMCE/CKEditor** - Rich text editor
 
 ### Backend
-- **PHP 8.x** ✅ (OOP + MVC)
+- **PHP 8.x**  (OOP + MVC)
 - **PDO** - Database abstraction
 - **Composer** - Dependency manager (optional)
 
 ### Database
-- **MySQL 8.0** ✅
+- **MySQL 8.0** 
 - **Stored Procedures** - Business logic
 - **Triggers** - Auto update data
 - **Views** - Complex queries
 
 ### Tools & Services
-- **Git/GitHub** ✅ - Version control
-- **Microsoft Teams/Trello** ✅ - Task management
-- **Shared Hosting** ✅ - For database access
+- **Git/GitHub**  - Version control
+- **Microsoft Teams/Trello**  - Task management
+- **Shared Hosting**  - For database access
 - **Postman** - API testing
 - **VS Code** - IDE
 
