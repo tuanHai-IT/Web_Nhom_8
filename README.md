@@ -8,6 +8,11 @@
 
 ---
 
+##   MÔ TẢ ĐỒ ÁN
+Dự án thiết kế website tin tức game tập trung xây dựng một trang web cung cấp thông tin và bài viết về game với giao diện hiện đại, thân thiện người dùng. Website được thiết kế responsive, dễ sử dụng và đáp ứng nhu cầu cập nhật tin tức game nhanh chóng cho người dùng.
+
+---
+
 ## 🛠️ CÔNG NGHỆ SỬ DỤNG
 
 ### Frontend
