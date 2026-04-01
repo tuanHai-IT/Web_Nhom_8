@@ -5,6 +5,7 @@ class Comment extends Model {
     protected string $table      = 'comments';
     protected string $primaryKey = 'comment_id';
 
+    // FIX: DB dùng is_approved=1, không phải status='approved'
     public function getApproved(int $articleId): array {
         return $this->db->fetchAll(
             "SELECT c.*, u.username, u.avatar
@@ -17,9 +18,11 @@ class Comment extends Model {
     }
 
     public function create(int $articleId, int $userId, string $content): int {
+        // FIX: insert is_approved=1 thay vì status='pending'
+        // Để comment hiện ngay (auto-approve). Nếu muốn moderation, đổi thành 0
         return $this->db->insert(
             "INSERT INTO comments (article_id, user_id, content, is_approved)
-             VALUES (?,?,?,0)",
+             VALUES (?,?,?,1)",
             [$articleId, $userId, $content]
         );
     }
@@ -36,6 +39,12 @@ class Comment extends Model {
     public function approve(int $id): int {
         return $this->db->execute(
             "UPDATE comments SET is_approved = 1 WHERE comment_id = ?", [$id]
+        );
+    }
+
+    public function delete(int $id): int {
+        return $this->db->execute(
+            "DELETE FROM comments WHERE comment_id = ?", [$id]
         );
     }
 
