@@ -1,24 +1,27 @@
 <?php
 // app/models/Category.php
+// DB uses category_name column; aliased as 'name' for view compatibility
 
 class Category extends Model {
     protected string $table      = 'categories';
     protected string $primaryKey = 'category_id';
 
-    public function all(string $orderBy = 'category_name ASC'): array {
-        return $this->db->fetchAll("SELECT *, category_name AS name FROM categories WHERE is_active = 1 ORDER BY {$orderBy}");
+    public function all(string $orderBy = ''): array {
+        return $this->db->fetchAll(
+            "SELECT *, category_name AS name FROM categories WHERE is_active = 1 ORDER BY category_name ASC"
+        );
     }
 
     public function getBySlug(string $slug): array|false {
         return $this->db->fetchOne(
-            "SELECT *, category_name AS name FROM categories WHERE slug = ? AND is_active = 1", [$slug]
+            "SELECT *, category_name AS name FROM categories WHERE slug = ?", [$slug]
         );
     }
 
     public function create(array $data): int {
         return $this->db->insert(
-            "INSERT INTO categories (category_name, slug, description, color, icon, display_order) VALUES (?,?,?,?,?,?)",
-            [$data['name'], $data['slug'], $data['description'] ?? '', $data['color'] ?? '#e63946', $data['icon'] ?? '', $data['display_order'] ?? 0]
+            "INSERT INTO categories (category_name, slug, description, color) VALUES (?,?,?,?)",
+            [$data['name'], $data['slug'], $data['description'] ?? '', $data['color'] ?? '#e63946']
         );
     }
 
