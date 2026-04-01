@@ -1,4 +1,12 @@
+<div align="center">
+<img src="public/images/gamenexus-logo.svg" alt="GameNews Logo" width="200" height="auto">
+</div>
+
 # ĐỒ ÁN KẾT THÚC MÔN: WEB TIN TỨC GAME
+
+[![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4)](https://www.php.net/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1)](https://www.mysql.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## THÔNG TIN MÔN HỌC
 - **Môn học:** Phát triển Ứng dụng Web
