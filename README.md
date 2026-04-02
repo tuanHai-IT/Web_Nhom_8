@@ -1,5 +1,5 @@
 <div align="center">
-<img src="public/images/gamenexus-logo.svg" alt="GameNews Logo" width="200" height="auto">
+<img width="2451" height="1355" alt="image" src="https://github.com/user-attachments/assets/100e8bd4-b6ef-4a2e-99fa-64957b823b7f" />
 </div>
 
 # ĐỒ ÁN KẾT THÚC MÔN: WEB TIN TỨC GAME
