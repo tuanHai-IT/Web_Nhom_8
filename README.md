@@ -1,6 +1,3 @@
-<div align="center">
-<img width="2451" height="1355" alt="image" src="https://github.com/user-attachments/assets/100e8bd4-b6ef-4a2e-99fa-64957b823b7f" />
-</div>
 
 # ĐỒ ÁN KẾT THÚC MÔN: WEB TIN TỨC GAME
 
@@ -19,6 +16,9 @@
 ## MÔ TẢ ĐỒ ÁN
 
 **GameNews** là website tin tức game hiện đại được xây dựng theo kiến trúc **MVC** với **PHP OOP**, cung cấp thông tin bài viết, tin tức game mới nhất. Website có giao diện responsive, thân thiện, hỗ trợ người dùng đăng nhập, bookmark, đánh giá, bình luận bài viết.
+<div align="center">
+<img width="2451" height="1355" alt="image" src="https://github.com/user-attachments/assets/100e8bd4-b6ef-4a2e-99fa-64957b823b7f" />
+</div>
 
 ### Tính năng chính:
 - **Frontend**: Trang chủ với tin nổi bật, carousel, tag cloud, search real-time.
