@@ -1,6 +1,6 @@
 <?php
 // app/models/Article.php
-// FIX: 
+// FIX:
 //   - categories: category_name (không phải name)
 //   - tags: tag_name (không phải name)
 //   - ratings: score (không phải rating)
@@ -10,284 +10,237 @@ class Article extends Model
     protected string $table      = 'articles';
     protected string $primaryKey = 'article_id';
 
-    // Đoạn SELECT dùng chung — alias để view không cần đổi
-    private function selectCols(string $extra = ''): string
-    {
-        return "SELECT a.*, 
-                c.category_name AS category_name, c.slug AS category_slug,
-                COALESCE(u.full_name, u.username) AS author_name
-                {$extra}
-                FROM articles a
-                JOIN categories c ON a.category_id = c.category_id
-                JOIN users u ON a.author_id = u.user_id";
-    }
-
     public function getLatest(int $limit = 10): array
     {
-        return $this->db->fetchAll(
-            $this->selectCols() . "
-            WHERE a.status = 'published'
-            ORDER BY a.published_at DESC LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_latest_articles
+        return $this->db->callProc('sp_get_latest_articles', [$limit]);
     }
 
     public function getFeatured(int $limit = 5): array
     {
-        return $this->db->fetchAll(
-            $this->selectCols() . "
-            WHERE a.status = 'published' AND a.is_featured = 1
-            ORDER BY a.published_at DESC LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_featured_articles
+        return $this->db->callProc('sp_get_featured_articles', [$limit]);
     }
 
     public function getBreaking(int $limit = 5): array
     {
-        return $this->db->fetchAll(
-            "SELECT a.*, c.category_name AS category_name
-             FROM articles a
-             JOIN categories c ON a.category_id = c.category_id
-             WHERE a.status = 'published' AND a.is_breaking = 1
-             ORDER BY a.published_at DESC LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_breaking_articles
+        return $this->db->callProc('sp_get_breaking_articles', [$limit]);
     }
 
     public function getMostViewed(int $limit = 5): array
     {
-        return $this->db->fetchAll(
-            $this->selectCols() . "
-            WHERE a.status = 'published'
-            ORDER BY a.view_count DESC LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_most_viewed_articles
+        return $this->db->callProc('sp_get_most_viewed_articles', [$limit]);
     }
 
     public function getBySlug(string $slug): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT a.*, 
-                    c.category_name AS category_name, c.slug AS category_slug,
-                    COALESCE(u.full_name, u.username) AS author_name,
-                    u.user_id AS author_user_id
-             FROM articles a
-             JOIN categories c ON a.category_id = c.category_id
-             JOIN users u ON a.author_id = u.user_id
-             WHERE a.slug = ? AND a.status = 'published'",
-            [$slug]
-        );
+        // SP: sp_get_article_by_slug
+        $rows = $this->db->callProc('sp_get_article_by_slug', [$slug]);
+        return $rows[0] ?? false;
     }
 
     public function incrementView(int $id): void
     {
-        $this->db->execute(
-            "UPDATE articles SET view_count = view_count + 1 WHERE article_id = ?",
-            [$id]
-        );
+        // SP: sp_increment_article_view
+        $this->db->callProc('sp_increment_article_view', [$id]);
     }
 
     public function getRelated(int $categoryId, int $excludeId, int $limit = 4): array
     {
-        return $this->db->fetchAll(
-            "SELECT a.*, c.category_name AS category_name, c.slug AS category_slug
-             FROM articles a
-             JOIN categories c ON a.category_id = c.category_id
-             WHERE a.category_id = ? AND a.article_id != ? AND a.status = 'published'
-             ORDER BY a.published_at DESC LIMIT ?",
-            [$categoryId, $excludeId, $limit]
-        );
+        // SP: sp_get_related_articles
+        return $this->db->callProc('sp_get_related_articles', [$categoryId, $excludeId, $limit]);
     }
 
     public function getByCategory(int $categoryId, int $page = 1, int $perPage = 9): array
     {
-        $sql = $this->selectCols() . "
-               WHERE a.category_id = ? AND a.status = 'published'
-               ORDER BY a.published_at DESC";
-        return $this->paginate($sql, [$categoryId], $page, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_get_articles_by_category_data
+        $data  = $this->db->callProc('sp_get_articles_by_category_data', [$categoryId, $perPage, $offset]);
+
+        // SP: sp_get_articles_by_category_count
+        $countRows = $this->db->callProc('sp_get_articles_by_category_count', [$categoryId]);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     public function getByTag(int $tagId, int $page = 1, int $perPage = 9): array
     {
-        $sql = "SELECT a.*, c.category_name AS category_name, c.slug AS category_slug,
-                       COALESCE(u.full_name, u.username) AS author_name
-                FROM articles a
-                JOIN categories c ON a.category_id = c.category_id
-                JOIN users u ON a.author_id = u.user_id
-                JOIN article_tags at ON a.article_id = at.article_id
-                WHERE at.tag_id = ? AND a.status = 'published'
-                ORDER BY a.published_at DESC";
-        return $this->paginate($sql, [$tagId], $page, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_get_articles_by_tag_data
+        $data = $this->db->callProc('sp_get_articles_by_tag_data', [$tagId, $perPage, $offset]);
+
+        // SP: sp_get_articles_by_tag_count
+        $countRows = $this->db->callProc('sp_get_articles_by_tag_count', [$tagId]);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     public function search(string $query, int $page = 1, int $perPage = 10): array
     {
-        $like = "%{$query}%";
-        $sql  = $this->selectCols() . "
-                WHERE a.status = 'published'
-                  AND (a.title LIKE ? OR a.summary LIKE ? OR a.content LIKE ?)
-                ORDER BY a.published_at DESC";
-        return $this->paginate($sql, [$like, $like, $like], $page, $perPage);
+        $like   = "%{$query}%";
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_search_articles_data
+        $data = $this->db->callProc('sp_search_articles_data', [$like, $perPage, $offset]);
+
+        // SP: sp_search_articles_count
+        $countRows = $this->db->callProc('sp_search_articles_count', [$like]);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     public function getTags(int $articleId): array
     {
-        return $this->db->fetchAll(
-            "SELECT t.*, t.tag_name AS name FROM tags t
-             JOIN article_tags at ON t.tag_id = at.tag_id
-             WHERE at.article_id = ?",
-            [$articleId]
-        );
+        // SP: sp_get_article_tags
+        return $this->db->callProc('sp_get_article_tags', [$articleId]);
     }
 
     public function getAllAdmin(int $page = 1, int $perPage = 15): array
     {
-        $sql = "SELECT a.*, c.category_name AS category_name,
-                       COALESCE(u.full_name, u.username) AS author_name
-                FROM articles a
-                JOIN categories c ON a.category_id = c.category_id
-                JOIN users u ON a.author_id = u.user_id
-                ORDER BY a.created_at DESC";
-        return $this->paginate($sql, [], $page, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_get_all_articles_admin_data
+        $data = $this->db->callProc('sp_get_all_articles_admin_data', [$perPage, $offset]);
+
+        // SP: sp_get_all_articles_admin_count
+        $countRows = $this->db->callProc('sp_get_all_articles_admin_count', []);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     public function create(array $data): int
     {
-        return $this->db->insert(
-            "INSERT INTO articles
-                (title, slug, summary, content, thumbnail, category_id, author_id,
-                 status, is_featured, is_breaking, meta_title, meta_description, published_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            [
-                $data['title'],
-                $data['slug'],
-                $data['summary'] ?? '',
-                $data['content'],
-                $data['thumbnail'] ?? null,
-                $data['category_id'],
-                $data['author_id'],
-                $data['status'] ?? 'draft',
-                (int)($data['is_featured'] ?? 0),
-                (int)($data['is_breaking'] ?? 0),
-                $data['meta_title'] ?? $data['title'],
-                $data['meta_description'] ?? ($data['summary'] ?? ''),
-                ($data['status'] ?? '') === 'published' ? date('Y-m-d H:i:s') : null
-            ]
-        );
+        $publishedAt = ($data['status'] ?? '') === 'published' ? date('Y-m-d H:i:s') : null;
+
+        // SP: sp_create_article
+        $rows = $this->db->callProc('sp_create_article', [
+            $data['title'],
+            $data['slug'],
+            $data['summary'] ?? '',
+            $data['content'],
+            $data['thumbnail'] ?? null,
+            $data['category_id'],
+            $data['author_id'],
+            $data['status'] ?? 'draft',
+            (int)($data['is_featured'] ?? 0),
+            (int)($data['is_breaking'] ?? 0),
+            $data['meta_title'] ?? $data['title'],
+            $data['meta_description'] ?? ($data['summary'] ?? ''),
+            $publishedAt,
+        ]);
+        return (int)($rows[0]['new_id'] ?? 0);
     }
 
     public function update(int $id, array $data): int
     {
-        return $this->db->execute(
-            "UPDATE articles SET title=?, slug=?, summary=?, content=?, thumbnail=?,
-             category_id=?, status=?, is_featured=?, is_breaking=?,
-             meta_title=?, meta_description=?, updated_at=NOW()
-             WHERE article_id=?",
-            [
-                $data['title'],
-                $data['slug'],
-                $data['summary'] ?? '',
-                $data['content'],
-                $data['thumbnail'] ?? null,
-                $data['category_id'],
-                $data['status'] ?? 'draft',
-                (int)($data['is_featured'] ?? 0),
-                (int)($data['is_breaking'] ?? 0),
-                $data['meta_title'] ?? $data['title'],
-                $data['meta_description'] ?? ($data['summary'] ?? ''),
-                $id
-            ]
-        );
+        // SP: sp_update_article
+        $this->db->callProc('sp_update_article', [
+            $id,
+            $data['title'],
+            $data['slug'],
+            $data['summary'] ?? '',
+            $data['content'],
+            $data['thumbnail'] ?? null,
+            $data['category_id'],
+            $data['status'] ?? 'draft',
+            (int)($data['is_featured'] ?? 0),
+            (int)($data['is_breaking'] ?? 0),
+            $data['meta_title'] ?? $data['title'],
+            $data['meta_description'] ?? ($data['summary'] ?? ''),
+        ]);
+        return 1;
     }
 
     // FIX: ratings dùng cột `score`, không phải `rating`
     public function getAvgRating(int $articleId): float
     {
-        $row = $this->db->fetchOne(
-            "SELECT AVG(score) as avg_rating FROM ratings WHERE article_id = ?",
-            [$articleId]
-        );
-        return round((float)($row['avg_rating'] ?? 0), 1);
+        // SP: sp_get_avg_rating
+        $rows = $this->db->callProc('sp_get_avg_rating', [$articleId]);
+        return round((float)($rows[0]['avg_rating'] ?? 0), 1);
     }
 
     public function getUserRating(int $articleId, int $userId): int
     {
-        $row = $this->db->fetchOne(
-            "SELECT score FROM ratings WHERE article_id = ? AND user_id = ?",
-            [$articleId, $userId]
-        );
-        return (int)($row['score'] ?? 0);
+        // SP: sp_get_user_rating
+        $rows = $this->db->callProc('sp_get_user_rating', [$articleId, $userId]);
+        return (int)($rows[0]['score'] ?? 0);
     }
 
     public function rateArticle(int $articleId, int $userId, int $rating): void
     {
-        $this->db->execute(
-            "INSERT INTO ratings (article_id, user_id, score)
-             VALUES (?,?,?)
-             ON DUPLICATE KEY UPDATE score = VALUES(score)",
-            [$articleId, $userId, $rating]
-        );
+        // SP: sp_rate_article
+        $this->db->callProc('sp_rate_article', [$articleId, $userId, $rating]);
     }
 
     public function isBookmarked(int $articleId, int $userId): bool
     {
-        return (bool)$this->db->fetchOne(
-            "SELECT 1 FROM bookmarks WHERE article_id = ? AND user_id = ?",
-            [$articleId, $userId]
-        );
+        // SP: sp_is_bookmarked
+        $rows = $this->db->callProc('sp_is_bookmarked', [$articleId, $userId]);
+        return !empty($rows);
     }
 
     public function toggleBookmark(int $articleId, int $userId): bool
     {
         if ($this->isBookmarked($articleId, $userId)) {
-            $this->db->execute(
-                "DELETE FROM bookmarks WHERE article_id = ? AND user_id = ?",
-                [$articleId, $userId]
-            );
+            // SP: sp_delete_bookmark
+            $this->db->callProc('sp_delete_bookmark', [$articleId, $userId]);
             return false;
         }
-        $this->db->execute(
-            "INSERT INTO bookmarks (article_id, user_id) VALUES (?,?)",
-            [$articleId, $userId]
-        );
+        // SP: sp_add_bookmark
+        $this->db->callProc('sp_add_bookmark', [$articleId, $userId]);
         return true;
     }
 
     public function getUserBookmarks(int $userId): array
     {
-        return $this->db->fetchAll(
-            "SELECT a.*, c.category_name AS category_name, c.slug AS category_slug
-             FROM articles a
-             JOIN categories c ON a.category_id = c.category_id
-             JOIN bookmarks b ON a.article_id = b.article_id
-             WHERE b.user_id = ? AND a.status = 'published'
-             ORDER BY b.created_at DESC",
-            [$userId]
-        );
+        // SP: sp_get_user_bookmarks
+        return $this->db->callProc('sp_get_user_bookmarks', [$userId]);
     }
 
     public function generateSlug(string $title): string
     {
-        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
+        $slug     = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
         $original = $slug;
         $i = 1;
-        while ($this->db->fetchOne("SELECT 1 FROM articles WHERE slug = ?", [$slug])) {
+        // SP: sp_check_article_slug
+        while (!empty($this->db->callProc('sp_check_article_slug', [$slug]))) {
             $slug = $original . '-' . $i++;
         }
         return $slug;
     }
+
     /**
      * Lưu lịch sử đọc bài viết
      * Dùng INSERT ... ON DUPLICATE KEY để update read_at nếu đọc lại
      */
     public function addReadHistory(int $articleId, int $userId): void
     {
-        $this->db->execute(
-            "INSERT INTO read_history (user_id, article_id, read_at)
-         VALUES (?, ?, NOW())
-         ON DUPLICATE KEY UPDATE read_at = NOW()",
-            [$userId, $articleId]
-        );
+        // SP: sp_add_read_history
+        $this->db->callProc('sp_add_read_history', [$userId, $articleId]);
     }
 
     /**
@@ -295,16 +248,7 @@ class Article extends Model
      */
     public function getReadHistory(int $userId, int $limit = 20): array
     {
-        return $this->db->fetchAll(
-            "SELECT a.*, c.category_name AS category_name, c.slug AS category_slug,
-                rh.read_at
-         FROM read_history rh
-         JOIN articles a ON rh.article_id = a.article_id
-         JOIN categories c ON a.category_id = c.category_id
-         WHERE rh.user_id = ? AND a.status = 'published'
-         ORDER BY rh.read_at DESC
-         LIMIT ?",
-            [$userId, $limit]
-        );
+        // SP: sp_get_read_history
+        return $this->db->callProc('sp_get_read_history', [$userId, $limit]);
     }
 }
