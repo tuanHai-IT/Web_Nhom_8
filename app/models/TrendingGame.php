@@ -23,13 +23,8 @@ class TrendingGame extends \Model
      */
     public function getAllActive(int $limit = 10): array
     {
-        return $this->db->fetchAll(
-            "SELECT * FROM trending_games 
-             WHERE is_Active = 1 
-             ORDER BY featured_rank ASC, article_count DESC
-             LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_all_active_trending_games
+        return $this->db->callProc('sp_get_all_active_trending_games', [$limit]);
     }
 
     /**
@@ -43,14 +38,12 @@ class TrendingGame extends \Model
     {
         $offset = ($page - 1) * $perPage;
 
-        $data = $this->db->fetchAll(
-            "SELECT * FROM trending_games 
-             ORDER BY featured_rank ASC, created_at DESC
-             LIMIT ? OFFSET ?",
-            [$perPage, $offset]
-        );
+        // SP: sp_get_all_trending_games_admin_data
+        $data = $this->db->callProc('sp_get_all_trending_games_admin_data', [$perPage, $offset]);
 
-        $total = $this->countAll();
+        // SP: sp_get_all_trending_games_admin_count
+        $countRows = $this->db->callProc('sp_get_all_trending_games_admin_count', []);
+        $total = (int)($countRows[0]['total'] ?? 0);
         $pages = ceil($total / $perPage);
 
         return [
@@ -69,10 +62,9 @@ class TrendingGame extends \Model
      */
     public function getBySlug(string $slug): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT * FROM trending_games WHERE slug = ?",
-            [$slug]
-        );
+        // SP: sp_get_trending_game_by_slug
+        $rows = $this->db->callProc('sp_get_trending_game_by_slug', [$slug]);
+        return $rows[0] ?? false;
     }
 
     /**
@@ -88,6 +80,7 @@ class TrendingGame extends \Model
         $slug = trim($slug, '-');
         return $slug;
     }
+
     /**
      * Count all games
      *
