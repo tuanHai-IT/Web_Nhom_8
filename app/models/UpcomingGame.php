@@ -25,13 +25,8 @@ class UpcomingGame extends \Model
      */
     public function getUpcoming(int $limit = 5, string $status = 'upcoming'): array
     {
-        return $this->db->fetchAll(
-            "SELECT * FROM upcoming_games 
-             WHERE status = ? 
-             ORDER BY is_featured DESC, release_date ASC
-             LIMIT ?",
-            [$status, $limit]
-        );
+        // SP: sp_get_upcoming_games
+        return $this->db->callProc('sp_get_upcoming_games', [$status, $limit]);
     }
 
     /**
@@ -42,13 +37,8 @@ class UpcomingGame extends \Model
      */
     public function getFeatured(int $limit = 5): array
     {
-        return $this->db->fetchAll(
-            "SELECT * FROM upcoming_games 
-             WHERE is_featured = 1 AND status = 'upcoming'
-             ORDER BY release_date ASC
-             LIMIT ?",
-            [$limit]
-        );
+        // SP: sp_get_featured_upcoming_games
+        return $this->db->callProc('sp_get_featured_upcoming_games', [$limit]);
     }
 
     /**
@@ -58,12 +48,8 @@ class UpcomingGame extends \Model
      */
     public function getReleasingSoon(): array
     {
-        return $this->db->fetchAll(
-            "SELECT * FROM upcoming_games 
-             WHERE status = 'upcoming' 
-             AND release_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-             ORDER BY release_date ASC"
-        );
+        // SP: sp_get_releasing_soon_games
+        return $this->db->callProc('sp_get_releasing_soon_games', []);
     }
 
     /**
@@ -74,10 +60,9 @@ class UpcomingGame extends \Model
      */
     public function getBySlug(string $slug): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT * FROM upcoming_games WHERE slug = ?",
-            [$slug]
-        );
+        // SP: sp_get_upcoming_game_by_slug
+        $rows = $this->db->callProc('sp_get_upcoming_game_by_slug', [$slug]);
+        return $rows[0] ?? false;
     }
 
     /**
@@ -96,8 +81,20 @@ class UpcomingGame extends \Model
      */
     public function getAllAdmin(int $page = 1, int $perPage = 10): array
     {
-        $sql = "SELECT * FROM upcoming_games ORDER BY release_date DESC";
-        return $this->paginate($sql, [], $page, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_get_all_upcoming_games_admin_data
+        $data = $this->db->callProc('sp_get_all_upcoming_games_admin_data', [$perPage, $offset]);
+
+        // SP: sp_get_all_upcoming_games_admin_count
+        $countRows = $this->db->callProc('sp_get_all_upcoming_games_admin_count', []);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     /**
@@ -142,13 +139,11 @@ class UpcomingGame extends \Model
      */
     public function hasReleased(int $id): bool
     {
-        $game = $this->db->fetchOne(
-            "SELECT release_date FROM upcoming_games WHERE id = ?",
-            [$id]
-        );
+        // SP: sp_get_upcoming_game_release_date
+        $rows = $this->db->callProc('sp_get_upcoming_game_release_date', [$id]);
 
-        if (!$game) return false;
+        if (empty($rows)) return false;
 
-        return strtotime($game['release_date']) < time();
+        return strtotime($rows[0]['release_date']) < time();
     }
 }
