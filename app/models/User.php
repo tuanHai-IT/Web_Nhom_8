@@ -6,51 +6,42 @@ class User extends Model
     protected string $table      = 'users';
     protected string $primaryKey = 'user_id';
 
-    // FIX: DB dùng r.role_name, không phải r.name
-    private string $roleJoin = "
-        SELECT u.*, r.role_name AS role_name
-        FROM users u
-        LEFT JOIN roles r ON u.role_id = r.role_id";
-
     public function findByEmail(string $email): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT u.*, r.role_name AS role_name
-             FROM users u
-             LEFT JOIN roles r ON u.role_id = r.role_id
-             WHERE u.email = ?",
-            [$email]
-        );
+        // SP: sp_find_user_by_email
+        $rows = $this->db->callProc('sp_find_user_by_email', [$email]);
+        return $rows[0] ?? false;
     }
 
     public function findByUsername(string $username): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT * FROM users WHERE username = ?",
-            [$username]
-        );
+        // SP: sp_find_user_by_username
+        $rows = $this->db->callProc('sp_find_user_by_username', [$username]);
+        return $rows[0] ?? false;
     }
 
     public function create(array $data): int
     {
         $hash = password_hash($data['password'], PASSWORD_BCRYPT);
         // role_id=3 = member (theo online_news_db: 1=admin,2=editor,3=member)
-        return $this->db->insert(
-            "INSERT INTO users (username, email, password, role_id) VALUES (?,?,?,3)",
-            [$data['username'], $data['email'], $hash]
-        );
+        // SP: sp_create_user
+        $rows = $this->db->callProc('sp_create_user', [$data['username'], $data['email'], $hash]);
+        return (int)($rows[0]['new_id'] ?? 0);
     }
+
     /**
      * Tạo user đăng ký qua social login (Google/Facebook)
      */
     public function createSocialUser(array $data): int
     {
         // role_id=3 = member (giống register thường)
-        return $this->db->insert(
-            "INSERT INTO users (username, email, password, provider, role_id, created_at)
-         VALUES (?,?,?,?,3,NOW())",
-            [$data['username'], $data['email'], '', $data['provider']]
-        );
+        // SP: sp_create_social_user
+        $rows = $this->db->callProc('sp_create_social_user', [
+            $data['username'],
+            $data['email'],
+            $data['provider'],
+        ]);
+        return (int)($rows[0]['new_id'] ?? 0);
     }
 
     public function verify(string $email, string $password): array|false
@@ -64,40 +55,47 @@ class User extends Model
 
     public function getAllAdmin(int $page = 1, int $perPage = 20): array
     {
-        $sql = "SELECT u.*, r.role_name AS role_name
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.role_id
-                ORDER BY u.created_at DESC";
-        return $this->paginate($sql, [], $page, $perPage);
+        $offset = ($page - 1) * $perPage;
+
+        // SP: sp_get_all_users_admin_data
+        $data = $this->db->callProc('sp_get_all_users_admin_data', [$perPage, $offset]);
+
+        // SP: sp_get_all_users_admin_count
+        $countRows = $this->db->callProc('sp_get_all_users_admin_count', []);
+        $total = (int)($countRows[0]['total'] ?? 0);
+
+        return [
+            'data'  => $data,
+            'total' => $total,
+            'pages' => (int)ceil($total / max(1, $perPage)),
+        ];
     }
 
     public function updateRole(int $userId, int $roleId): int
     {
-        return $this->db->execute(
-            "UPDATE users SET role_id = ? WHERE user_id = ?",
-            [$roleId, $userId]
-        );
+        // SP: sp_update_user_role
+        $this->db->callProc('sp_update_user_role', [$userId, $roleId]);
+        return 1;
     }
 
     public function getRoles(): array
     {
-        return $this->db->fetchAll("SELECT * FROM roles ORDER BY role_id");
+        // SP: sp_get_roles
+        return $this->db->callProc('sp_get_roles', []);
     }
 
     public function emailExists(string $email): bool
     {
-        return (bool)$this->db->fetchOne(
-            "SELECT 1 FROM users WHERE email = ?",
-            [$email]
-        );
+        // SP: sp_email_exists
+        $rows = $this->db->callProc('sp_email_exists', [$email]);
+        return !empty($rows);
     }
 
     public function usernameExists(string $username): bool
     {
-        return (bool)$this->db->fetchOne(
-            "SELECT 1 FROM users WHERE username = ?",
-            [$username]
-        );
+        // SP: sp_username_exists
+        $rows = $this->db->callProc('sp_username_exists', [$username]);
+        return !empty($rows);
     }
 
     // ── Password Reset Token Methods ──
@@ -105,40 +103,39 @@ class User extends Model
     public function createResetToken(int $userId, string $token, string $expiresAt): int
     {
         // Delete old tokens for this user
-        $this->db->execute("DELETE FROM reset_tokens WHERE user_id = ?", [$userId]);
+        // SP: sp_delete_user_reset_tokens
+        $this->db->callProc('sp_delete_user_reset_tokens', [$userId]);
 
         // Create new token
-        return $this->db->insert(
-            "INSERT INTO reset_tokens (user_id, token, expires_at, created_at) VALUES (?,?,?,NOW())",
-            [$userId, $token, $expiresAt]
-        );
+        // SP: sp_create_reset_token
+        $rows = $this->db->callProc('sp_create_reset_token', [$userId, $token, $expiresAt]);
+        return (int)($rows[0]['new_id'] ?? 0);
     }
 
     public function getResetToken(string $token): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT * FROM reset_tokens WHERE token = ?",
-            [$token]
-        );
+        // SP: sp_get_reset_token
+        $rows = $this->db->callProc('sp_get_reset_token', [$token]);
+        return $rows[0] ?? false;
     }
 
     public function deleteResetToken(string $token): int
     {
-        return $this->db->execute(
-            "DELETE FROM reset_tokens WHERE token = ?",
-            [$token]
-        );
+        // SP: sp_delete_reset_token
+        $this->db->callProc('sp_delete_reset_token', [$token]);
+        return 1;
     }
 
     public function updatePassword(int $userId, string $hashedPassword): int
     {
-        return $this->db->execute(
-            "UPDATE users SET password = ?, updated_at = NOW() WHERE user_id = ?",
-            [$hashedPassword, $userId]
-        );
+        // SP: sp_update_user_password
+        $this->db->callProc('sp_update_user_password', [$userId, $hashedPassword]);
+        return 1;
     }
+
     /**
      * Cập nhật thông tin cá nhân user
+     * Dynamic SET — kept as inline SQL (columns vary per call)
      */
     public function updateProfile(int $userId, array $data): int
     {
@@ -176,12 +173,8 @@ class User extends Model
      */
     public function findById(int $userId): array|false
     {
-        return $this->db->fetchOne(
-            "SELECT u.*, r.role_name
-         FROM users u
-         LEFT JOIN roles r ON u.role_id = r.role_id
-         WHERE u.user_id = ?",
-            [$userId]
-        );
+        // SP: sp_find_user_by_id
+        $rows = $this->db->callProc('sp_find_user_by_id', [$userId]);
+        return $rows[0] ?? false;
     }
 }
